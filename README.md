@@ -1,6 +1,6 @@
-# Haystack HITL (Human-in-the-Loop) with Open WebUI
+# Hayhooks HITL (Human-in-the-Loop) with Open WebUI
 
-A Redis-based Human-in-the-Loop implementation for Haystack Agents, integrated with Open WebUI for interactive tool approval workflows.
+A Redis-based Human-in-the-Loop implementation for Hayhooks / Haystack Agents, integrated with Open WebUI for interactive tool approval workflows.
 
 ![HITL Demo](./assets/hitl-demo.gif)
 
