@@ -1,0 +1,71 @@
+services:
+  redis:
+    image: redis:alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - hitl-network
+    restart: unless-stopped
+
+  hayhooks:
+    build: . # Build from local Dockerfile
+    container_name: hayhooks
+    ports:
+      - "1416:1416"
+    volumes:
+      - ./pipelines:/pipelines
+    environment:
+      - HAYHOOKS_PIPELINES_DIR=/pipelines
+      # Note that this is the REAL OPENAI_API_KEY key
+      # which you should have in your environment variables.
+      # It will be used by hayhooks in hitl pipeline
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      # Redis connection (uses container name)
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - redis
+    networks:
+      - hitl-network
+    restart: unless-stopped
+
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:${WEBUI_DOCKER_TAG-main}
+    container_name: open-webui
+    volumes:
+      - open-webui:/app/backend/data
+    ports:
+      - ${OPEN_WEBUI_PORT-3000}:8080
+    environment:
+      WEBUI_AUTH: "false"
+      ENABLE_EVALUATION_ARENA_MODELS: "false"
+      ENABLE_OLLAMA_API: "false"
+      ENABLE_OPENAI_API: "false"
+      OFFLINE_MODE: "true"
+      ENABLE_FOLLOW_UP_GENERATION: "false"
+      ENABLE_TAGS_GENERATION: "false"
+      DEFAULT_PROMPT_SUGGESTIONS: |-
+        [
+          {
+            "title": ["Weather in Berlin"],
+            "content": "How is the weather in Berlin?"
+          },
+          {
+            "title": ["Time in London"],
+            "content": "What is the current time in London?"
+          }
+        ]
+    depends_on:
+      - hayhooks
+      - redis
+    networks:
+      - hitl-network
+    restart: unless-stopped
+
+networks:
+  hitl-network:
+    driver: bridge
+
+volumes:
+  open-webui:
