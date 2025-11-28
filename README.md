@@ -2,6 +2,38 @@
 
 A Redis-based Human-in-the-Loop implementation for Haystack Agents, integrated with Open WebUI for interactive tool approval workflows.
 
+![HITL Demo](./assets/hitl-demo.gif)
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Architecture](#architecture)
+  - [Request Flow](#request-flow)
+  - [Detailed Flow Diagram](#detailed-flow-diagram)
+- [Prerequisites](#prerequisites)
+- [Quick Start with Docker Compose](#quick-start-with-docker-compose)
+- [Manual Installation (Alternative)](#manual-installation-alternative)
+  - [1. Set Up Python Environment](#1-set-up-python-environment)
+  - [2. Start Redis](#2-start-redis)
+  - [3. Start Hayhooks Server](#3-start-hayhooks-server)
+  - [4. Start Open WebUI](#4-start-open-webui)
+  - [5. Deploy and Configure the Pipe Function](#5-deploy-and-configure-the-pipe-function)
+- [Usage](#usage)
+- [Configuration](#configuration)
+  - [Environment Variables (Hayhooks)](#environment-variables-hayhooks)
+  - [Open WebUI Pipe Valves](#open-webui-pipe-valves)
+- [Available Tools](#available-tools)
+- [Adding Custom Tools](#adding-custom-tools)
+- [Troubleshooting](#troubleshooting)
+  - [Connection Refused to Hayhooks](#connection-refused-to-hayhooks)
+  - [Redis Connection Error](#redis-connection-error)
+  - [Tool Call Timeout](#tool-call-timeout)
+  - [SSE Streaming Issues](#sse-streaming-issues)
+- [How It Works](#how-it-works)
+  - [Pipeline Side](#pipeline-side-pipelineshitlpipeline_wrapperpy)
+  - [UI Side](#ui-side-open-webui-pipepy)
+- [License](#license)
+
 ## Overview
 
 This implementation allows users to approve or reject tool calls made by a Haystack Agent in real-time through Open WebUI's confirmation dialogs.
@@ -98,16 +130,7 @@ This starts:
 
 ### 2. Deploy the Pipe Function to Open WebUI
 
-1. Open <http://localhost:3000> in your browser
-2. Create an account and log in
-3. Go to **Admin Panel** → **Functions** → **Add Function**
-4. Copy the contents of `open-webui-pipe.py` into the editor
-5. Save and enable the function
-
-The default Valve settings are pre-configured for Docker Compose:
-
-- `BASE_URL`: `http://hayhooks:1416`
-- `REDIS_HOST`: `redis`
+Follow [Deploy and Configure the Pipe Function](#5-deploy-and-configure-the-pipe-function) section instructions to deploy the Pipe Function to Open WebUI.
 
 ---
 
@@ -144,7 +167,7 @@ export OPENAI_API_KEY="your-api-key-here"
 # export REDIS_PORT="6379"
 
 # Start Hayhooks and deploy the pipeline
-hayhooks run --pipelines-dir ./pipelines
+hayhooks run
 ```
 
 Hayhooks will start on `http://localhost:1416` and automatically load `pipelines/hitl/pipeline_wrapper.py`.
@@ -163,12 +186,17 @@ docker run -d \
 
 ### 5. Deploy and Configure the Pipe Function
 
+**NOTE**: This step can be automated, but will require to _enable authentication_ in Open WebUI, in order to get a JWT token and use it in the curl command. For this demo, since it's a one-time setup, we'll do it manually.
+
+![Pipe function deploy](./assets/pipe-function-deploy.gif)
+
 1. Open <http://localhost:3000> in your browser
-2. Create an account and log in
-3. Go to **Admin Panel** → **Functions** → **Add Function**
+2. Go to **Settings** → **Admin Settings**
+3. Select **Functions** from top bar
 4. Copy the contents of `open-webui-pipe.py` into the editor
-5. Save and enable the function
-6. **Important:** Update the Valves for manual setup:
+5. Give a title, name and description to the function
+6. Save and enable the function
+7. **Important:** Update the Valves for manual setup:
    - `BASE_URL`: `http://host.docker.internal:1416`
    - `REDIS_HOST`: `host.docker.internal`
 
@@ -177,8 +205,8 @@ docker run -d \
 1. In Open WebUI, start a new chat
 2. Select the **Hayhooks HITL Pipe** as your model (this routes requests through the Pipe function)
 3. Ask something that triggers a tool call, e.g.:
-   - *"What's the weather in Rome?"*
-   - *"What time is it in UTC?"*
+   - _"What's the weather in Rome?"_
+   - _"What time is it in UTC?"_
 4. The Pipe function will forward your message to Hayhooks
 5. When the Agent decides to call a tool, a confirmation dialog will appear
 6. Click **Confirm** to approve or **Cancel** to reject the tool execution
