@@ -2,7 +2,7 @@
 import asyncio
 import os
 import uuid
-from typing import TYPE_CHECKING, Any, AsyncGenerator, Union
+from typing import Any, AsyncGenerator, Union
 
 import redis.asyncio as redis
 from haystack.components.generators.chat import OpenAIChatGenerator
@@ -19,9 +19,6 @@ from hayhooks import BasePipelineWrapper, async_streaming_generator, log
 from hayhooks.server.pipelines.sse import SSEStream
 from datetime import datetime
 from zoneinfo import ZoneInfo
-
-if TYPE_CHECKING:
-    from haystack_experimental.components.agents.agent import _ExecutionContext
 
 
 # Tool functions
@@ -69,7 +66,7 @@ class RedisConfirmationStrategy(ConfirmationStrategy):
     """
     Stateless async confirmation strategy using Redis for approval tracking.
 
-    Per-request state (event_queue, redis_client) is obtained from execution_context.run_context,
+    Per-request state (event_queue, redis_client) is obtained from confirmation_strategy_context,
     allowing this strategy instance to be reused across requests.
     """
 
@@ -79,7 +76,7 @@ class RedisConfirmationStrategy(ConfirmationStrategy):
         tool_description: str,
         tool_params: dict[str, Any],
         tool_call_id: str | None = None,
-        execution_context: "_ExecutionContext | None" = None,
+        confirmation_strategy_context: dict[str, Any] | None = None,
     ) -> ToolExecutionDecision:
         """
         Sync version - not supported, use run_async instead.
@@ -97,7 +94,7 @@ class RedisConfirmationStrategy(ConfirmationStrategy):
         tool_description: str,
         tool_params: dict[str, Any],
         tool_call_id: str | None = None,
-        execution_context: "_ExecutionContext | None" = None,
+        confirmation_strategy_context: dict[str, Any] | None = None,
     ) -> ToolExecutionDecision:
         """
         Async confirmation strategy using Redis BLPOP for non-blocking approval wait.
@@ -106,18 +103,17 @@ class RedisConfirmationStrategy(ConfirmationStrategy):
         :param tool_description: Description of the tool.
         :param tool_params: Tool parameters.
         :param tool_call_id: Unique ID for this tool call.
-        :param execution_context: Execution context containing run_context with per-request state.
+        :param confirmation_strategy_context: Dictionary containing per-request state (event_queue, redis_client).
         :returns: ToolExecutionDecision object with approval status.
         """
-        # Get per-request state from execution context
-        if execution_context is None or execution_context.run_context is None:
+        # Get per-request state from confirmation_strategy_context
+        if confirmation_strategy_context is None:
             raise RuntimeError(
-                "execution_context.run_context is required for RedisConfirmationStrategy"
+                "confirmation_strategy_context is required for RedisConfirmationStrategy"
             )
 
-        run_ctx = execution_context.run_context
-        event_queue: asyncio.Queue[dict[str, Any]] = run_ctx["event_queue"]
-        redis_client: redis.Redis = run_ctx["redis_client"]
+        event_queue: asyncio.Queue[dict[str, Any]] = confirmation_strategy_context["event_queue"]
+        redis_client: redis.Redis = confirmation_strategy_context["redis_client"]
 
         # Generate tool_call_id if not provided
         if not tool_call_id:
@@ -242,11 +238,11 @@ class PipelineWrapper(BasePipelineWrapper):
             f"Async Redis client initialized with connection pool: {redis_host}:{redis_port}"
         )
 
-        # Create reusable confirmation strategy (stateless - uses run_context for per-request state)
+        # Create reusable confirmation strategy (stateless - uses confirmation_strategy_context for per-request state)
         self.confirmation_strategy = RedisConfirmationStrategy()
 
         # Create reusable Agent instance (thread-safe for concurrent requests)
-        # Per-request state is passed via run_context parameter
+        # Per-request state is passed via confirmation_strategy_context parameter
         self.agent = Agent(
             chat_generator=OpenAIChatGenerator(model="gpt-4o-mini"),
             system_prompt="You're a helpful agent with access to tools. Use them when needed.",
@@ -278,12 +274,12 @@ class PipelineWrapper(BasePipelineWrapper):
             ]
 
             # Use hayhooks async_streaming_generator with external_event_queue
-            # Pass per-request state via run_context (redis_client is shared and reused)
+            # Pass per-request state via confirmation_strategy_context (redis_client is shared and reused)
             async for item in async_streaming_generator(
                 pipeline=self.agent,  # Reused across requests!
                 pipeline_run_args={
                     "messages": chat_messages,
-                    "run_context": {  # Per-request state for confirmation strategy
+                    "confirmation_strategy_context": {  # Per-request state for confirmation strategy
                         "event_queue": event_queue,
                         "redis_client": self.redis_client,  # Shared async client
                     },

@@ -302,10 +302,12 @@ self.agent = Agent(
 
 The `RedisConfirmationStrategy` class implements Haystack's `ConfirmationStrategy` interface:
 
-1. When a tool call is initiated, it emits a `tool_call_start` event to the async queue
-2. It then waits on Redis `BLPOP` for an approval decision
+1. When a tool call is initiated, it emits a `tool_call_start` event to the async queue (obtained from `confirmation_strategy_context`)
+2. It then waits on Redis `BLPOP` for an approval decision (using the Redis client from `confirmation_strategy_context`)
 3. Once approval is received, it returns a `ToolExecutionDecision` object
 4. The agent proceeds to execute (or skip) the tool based on the decision
+
+The per-request state (event_queue, redis_client) is passed via the `confirmation_strategy_context` parameter when calling `agent.run_async()`.
 
 ### UI Side (`open-webui-pipe.py`)
 
