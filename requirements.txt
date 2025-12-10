@@ -3,4 +3,4 @@
 
 hayhooks>=1.7.0
 redis[hiredis]
-git+https://github.com/deepset-ai/haystack-experimental.git@run_context_and_async_conf_strategies
+git+https://github.com/deepset-ai/haystack-experimental.git
