@@ -3,4 +3,4 @@
 
 hayhooks>=1.7.0
 redis[hiredis]
-git+https://github.com/deepset-ai/haystack-experimental.git
+haystack-experimental>=0.15.1
