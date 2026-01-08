@@ -1,6 +1,7 @@
 # Hayhooks Server Dependencies
 # (Open WebUI pipe dependencies are installed via frontmatter in open-webui-pipe.py)
 
-hayhooks>=1.7.0
+hayhooks>=1.8.0
 redis[hiredis]
-haystack-experimental>=0.15.1
+haystack-experimental>=0.15.2
+haystack-ai==2.20.0
