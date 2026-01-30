@@ -3,4 +3,4 @@
 
 hayhooks>=1.8.0
 redis[hiredis]
-haystack-experimental>=0.16.0
+haystack-ai>=2.23.0

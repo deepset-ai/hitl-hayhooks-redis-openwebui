@@ -8,11 +8,11 @@ import redis.asyncio as redis
 from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.dataclasses import ChatMessage, StreamingChunk
 from haystack.tools import create_tool_from_function
-from haystack_experimental.components.agents.agent import Agent
-from haystack_experimental.components.agents.human_in_the_loop import (
+from haystack.components.agents.agent import Agent
+from haystack.human_in_the_loop.types import (
     ConfirmationStrategy,
 )
-from haystack_experimental.components.agents.human_in_the_loop.dataclasses import (
+from haystack.human_in_the_loop.dataclasses import (
     ToolExecutionDecision,
 )
 from hayhooks import BasePipelineWrapper, async_streaming_generator, log
