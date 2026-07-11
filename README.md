@@ -111,6 +111,8 @@ Frontend              Pipe Function                          /Agent             
 - **Docker** and **Docker Compose**
 - **OpenAI API key** (or compatible LLM endpoint)
 
+> **Note:** This repository targets **Haystack 3.0** (currently installed from the `main` branch, see `requirements.txt`) and **Hayhooks ≥ 1.22.0**. In Haystack 3.0, HITL is configured through the Agent's hooks mechanism (`ConfirmationHook` on the `before_tool` hook point) instead of the former `confirmation_strategies` init parameter.
+
 ## Quick Start with Docker Compose
 
 The easiest way to get started is using Docker Compose, which sets up all services (Redis, Hayhooks, Open WebUI) automatically.
@@ -259,13 +261,19 @@ custom_tool = create_tool_from_function(
     description="Description shown to the LLM",
 )
 
-# Add to agent tools list and confirmation_strategies dict
+# Add to the agent tools list and to the ConfirmationHook's confirmation_strategies dict
 self.agent = Agent(
     # ...
     tools=[weather_tool, time_tool, custom_tool],
-    confirmation_strategies={
-        # ...
-        custom_tool.name: self.confirmation_strategy,
+    hooks={
+        "before_tool": [
+            ConfirmationHook(
+                confirmation_strategies={
+                    # ...
+                    custom_tool.name: self.confirmation_strategy,
+                }
+            )
+        ]
     },
 )
 ```
@@ -307,7 +315,7 @@ The `RedisConfirmationStrategy` class implements Haystack's `ConfirmationStrateg
 3. Once approval is received, it returns a `ToolExecutionDecision` object
 4. The agent proceeds to execute (or skip) the tool based on the decision
 
-The per-request state (event_queue, redis_client) is passed via the `confirmation_strategy_context` parameter when calling `agent.run_async()`.
+The per-request state (event_queue, redis_client) is passed as the `hook_context` argument when calling `agent.run_async()`. The `ConfirmationHook` (registered on the Agent's `before_tool` hook point) reads this dict from the Agent state and hands it to the strategy's `run_async()` as the `confirmation_strategy_context` keyword argument.
 
 ### UI Side (`open-webui-pipe.py`)
 
