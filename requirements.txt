@@ -3,5 +3,4 @@
 
 hayhooks>=1.22.0
 redis[hiredis]
-# TODO: switch to haystack-ai>=3.0.0 once Haystack 3.0 is released on PyPI
-haystack-ai @ git+https://github.com/deepset-ai/haystack.git@main
+haystack-ai>=3.0.0

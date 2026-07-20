@@ -111,8 +111,6 @@ Frontend              Pipe Function                          /Agent             
 - **Docker** and **Docker Compose**
 - **OpenAI API key** (or compatible LLM endpoint)
 
-> **Note:** This repository targets **Haystack 3.0** (currently installed from the `main` branch, see `requirements.txt`) and **Hayhooks ≥ 1.22.0**. In Haystack 3.0, HITL is configured through the Agent's hooks mechanism (`ConfirmationHook` on the `before_tool` hook point) instead of the former `confirmation_strategies` init parameter.
-
 ## Quick Start with Docker Compose
 
 The easiest way to get started is using Docker Compose, which sets up all services (Redis, Hayhooks, Open WebUI) automatically.

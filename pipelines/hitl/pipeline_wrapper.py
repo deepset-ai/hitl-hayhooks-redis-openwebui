@@ -9,8 +9,8 @@ from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.dataclasses import ChatMessage, StreamingChunk
 from haystack.tools import create_tool_from_function
 from haystack.components.agents.agent import Agent
-from haystack.human_in_the_loop import ConfirmationHook
-from haystack.human_in_the_loop.types import (
+from haystack.hooks.human_in_the_loop import ConfirmationHook
+from haystack.hooks.human_in_the_loop.types import (
     ConfirmationStrategy,
 )
 from haystack.human_in_the_loop.dataclasses import (
