@@ -9,7 +9,8 @@ from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.dataclasses import ChatMessage, StreamingChunk
 from haystack.tools import create_tool_from_function
 from haystack.components.agents.agent import Agent
-from haystack.human_in_the_loop.types import (
+from haystack.hooks.human_in_the_loop import ConfirmationHook
+from haystack.hooks.human_in_the_loop.types import (
     ConfirmationStrategy,
 )
 from haystack.human_in_the_loop.dataclasses import (
@@ -67,11 +68,14 @@ class RedisConfirmationStrategy(ConfirmationStrategy):
     Stateless async confirmation strategy using Redis for approval tracking.
 
     Per-request state (event_queue, redis_client) is obtained from confirmation_strategy_context,
-    allowing this strategy instance to be reused across requests.
+    allowing this strategy instance to be reused across requests. The dict is passed to
+    Agent.run_async() as the `hook_context` argument; the ConfirmationHook forwards it to this
+    strategy as `confirmation_strategy_context`.
     """
 
     def run(
         self,
+        *,
         tool_name: str,
         tool_description: str,
         tool_params: dict[str, Any],
@@ -90,6 +94,7 @@ class RedisConfirmationStrategy(ConfirmationStrategy):
 
     async def run_async(
         self,
+        *,
         tool_name: str,
         tool_description: str,
         tool_params: dict[str, Any],
@@ -242,14 +247,20 @@ class PipelineWrapper(BasePipelineWrapper):
         self.confirmation_strategy = RedisConfirmationStrategy()
 
         # Create reusable Agent instance (thread-safe for concurrent requests)
-        # Per-request state is passed via confirmation_strategy_context parameter
+        # HITL is a "before_tool" hook; per-request state is passed via the hook_context run argument
         self.agent = Agent(
             chat_generator=OpenAIChatGenerator(model="gpt-4o-mini"),
             system_prompt="You're a helpful agent with access to tools. Use them when needed.",
             tools=[weather_tool, time_tool],
-            confirmation_strategies={
-                weather_tool.name: self.confirmation_strategy,
-                time_tool.name: self.confirmation_strategy,
+            hooks={
+                "before_tool": [
+                    ConfirmationHook(
+                        confirmation_strategies={
+                            weather_tool.name: self.confirmation_strategy,
+                            time_tool.name: self.confirmation_strategy,
+                        }
+                    )
+                ]
             },
         )
         log.info("Agent initialized with reusable async HITL confirmation strategy")
@@ -274,12 +285,13 @@ class PipelineWrapper(BasePipelineWrapper):
             ]
 
             # Use hayhooks async_streaming_generator with external_event_queue
-            # Pass per-request state via confirmation_strategy_context (redis_client is shared and reused)
+            # Pass per-request state via hook_context; the ConfirmationHook hands it to the
+            # confirmation strategy as confirmation_strategy_context (redis_client is shared and reused)
             async for item in async_streaming_generator(
                 pipeline=self.agent,  # Reused across requests!
                 pipeline_run_args={
                     "messages": chat_messages,
-                    "confirmation_strategy_context": {  # Per-request state for confirmation strategy
+                    "hook_context": {  # Per-request state for confirmation strategy
                         "event_queue": event_queue,
                         "redis_client": self.redis_client,  # Shared async client
                     },
