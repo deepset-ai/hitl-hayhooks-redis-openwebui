@@ -24,6 +24,10 @@ services:
       # Redis connection (uses container name)
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      # Anonymous feedback tool - defaults to DEMO_MODE=true (simulates posting, no real
+      # webhook needed). Set DEMO_MODE=false and fill in SLACK_WEBHOOK_URL to actually post.
+      - DEMO_MODE=${DEMO_MODE-false}
+      - SLACK_WEBHOOK_URL=https://hooks.slack.com/services/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
     depends_on:
       - redis
     networks:
@@ -48,12 +52,16 @@ services:
       DEFAULT_PROMPT_SUGGESTIONS: |-
         [
           {
-            "title": ["Weather in Berlin"],
-            "content": "How is the weather in Berlin?"
+            "title": ["What's new today?"],
+            "content": "What's new today in Haystack 3.0 Launch Week?"
           },
           {
-            "title": ["Time in London"],
-            "content": "What is the current time in London?"
+            "title": ["Explain a feature"],
+            "content": "What are Agent hooks in Haystack 3.0?"
+          },
+          {
+            "title": ["Send feedback"],
+            "content": "Tell the deepset team I love the human-in-the-loop hooks"
           }
         ]
     depends_on:
