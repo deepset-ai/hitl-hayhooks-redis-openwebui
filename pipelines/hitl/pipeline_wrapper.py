@@ -73,7 +73,7 @@ LAUNCH_WEEK_DAYS: dict[int, dict[str, str]] = {
             "Hayhooks + Redis + Open WebUI, so a human can approve or reject a tool call from a real "
             "chat UI across separate services, not just a blocking console prompt."
         ),
-        "url": "https://haystack.deepset.ai/launch-week/haystack-3",
+        "url": "https://github.com/deepset-ai/hitl-hayhooks-redis-openwebui",
     },
 }
 
@@ -197,7 +197,7 @@ def whats_new_today() -> str:
         return get_launch_week_day(offset + 1)
     return (
         "Haystack 3.0 Launch Week ran Monday July 20 - Friday July 24, 2026. Check "
-        "https://haystack.deepset.ai/launch-week/haystack-3 for the full recap."
+        "https://haystack.deepset.ai/launch-week for the full recap."
     )
 
 

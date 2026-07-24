@@ -259,7 +259,7 @@ read-only tools that execute immediately and the one consequential tool that req
 | `recommend_repo` | Recommend relevant deepset-ai GitHub repos for a given interest | No (read-only) |
 | `explain_feature` | Explain a specific Haystack 3.0 feature (hooks, skills, agent pack, etc.) | No (read-only) |
 | `search_haystack_docs` | Search the live Haystack documentation via deepset's hosted [docs MCP server](https://docs.haystack.deepset.ai/docs/docs-mcp-server) | No (read-only) |
-| `submit_feedback_to_deepset` | Post anonymous feedback (a question, comment, or feature request) to deepset's Slack | Yes (posts to a real channel, no personal details collected) |
+| `submit_feedback_to_deepset` | Post anonymous feedback (a question, comment, or feature request) to deepset's Slack | Yes (posts to a real channel) |
 
 Which tools require approval is controlled entirely by which ones are registered in the
 `ConfirmationHook`'s `confirmation_strategies` dict in `pipeline_wrapper.py` — a tool left out of
