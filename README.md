@@ -233,8 +233,8 @@ docker run -d \
 | `OPENAI_API_KEY` | - | Required. Your OpenAI API key |
 | `REDIS_HOST` | `localhost` | Redis server hostname |
 | `REDIS_PORT` | `6379` | Redis server port |
-| `DEMO_MODE` | `false` | When `false` (default), posts your message for real to a demo Slack workspace we set up just for this. Set to `true` to only simulate posting |
-| `SLACK_WEBHOOK_URL` | demo webhook (Compose) | Slack Incoming Webhook URL to post feedback to (used when `DEMO_MODE=false`; Compose defaults to our demo workspace - replace it with your own to post elsewhere) |
+| `DEMO_MODE` | `false` | When `false` (default), posts your message for real to a Slack workspace we set up just for this. Set to `true` to only simulate posting |
+| `SLACK_WEBHOOK_URL` | webhook (Compose) | Slack Incoming Webhook URL to post feedback to (used when `DEMO_MODE=false`; Compose defaults to a slack workspace  we set up just for this - replace it with your own to post elsewhere) |
 
 ### Open WebUI Pipe Valves
 
