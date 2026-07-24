@@ -2,7 +2,7 @@
 title: Hayhooks HITL Pipe
 author: mpangrazzi
 date: 2025-11-24
-version: 2.0.0
+version: 2.0.1
 license: MIT
 description: Proxy requests from Open WebUI to Hayhooks HITL pipeline with Redis-based approval tracking
 requirements: redis, aiohttp
@@ -200,27 +200,6 @@ class Pipe:
                 decode_responses=False,
             )
         return self.redis_client
-
-    async def pipes(self) -> list[dict]:
-        """
-        List available pipelines from Hayhooks.
-
-        :returns: List of available models/pipelines
-        """
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(
-                    f"{self.valves.BASE_URL.rstrip('/')}/models",
-                    timeout=aiohttp.ClientTimeout(total=5),
-                ) as resp:
-                    resp.raise_for_status()
-                    data = await resp.json()
-                    models = data.get("data", [])
-                    logger.info(f"Available models: {models}")
-                    return models
-        except Exception as e:
-            logger.error(f"Error fetching models: {e}", exc_info=True)
-            return []
 
     async def _handle_tool_call_start(
         self,
