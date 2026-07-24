@@ -162,10 +162,8 @@ FEATURE_EXPLANATIONS: dict[str, str] = {
     ),
 }
 
-# Slack configuration for the HITL-gated feedback tool. Posts to a Slack Incoming Webhook -
-# no OAuth token or bot scopes needed, just the webhook URL, and no personal details are ever
-# collected from the visitor, so submissions are fully anonymous.
-DEMO_MODE = os.environ.get("DEMO_MODE", "true").strip().lower() not in ("false", "0", "no")
+# Slack configuration for the HITL-gated feedback tool.
+DEMO_MODE = os.environ.get("DEMO_MODE", "false").strip().lower() not in ("false", "0", "no")
 SLACK_WEBHOOK_URL = os.environ.get("SLACK_WEBHOOK_URL", "")
 
 

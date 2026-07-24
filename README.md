@@ -94,7 +94,7 @@ Frontend              Pipe Function                          /Agent             
  │                        │◀───────────────────────────────────│                       │
  │                        │                                    │   BLPOP (waiting)     │
  │                        │                                    │──────────────────────▶│
- │  🔧 Approve feedback?  │                                     │                       │
+ │  🔧 Approve feedback?  │                                    │                       │
  │◀───────────────────────│                                    │                       │
  │                        │                                    │                       │
  │  ✅ Yes / ❌ No         │                                    │                       │
@@ -233,8 +233,8 @@ docker run -d \
 | `OPENAI_API_KEY` | - | Required. Your OpenAI API key |
 | `REDIS_HOST` | `localhost` | Redis server hostname |
 | `REDIS_PORT` | `6379` | Redis server port |
-| `DEMO_MODE` | `true` | When `true`, `submit_feedback_to_deepset` simulates posting instead of hitting the real Slack webhook. Set to `false` to actually post |
-| `SLACK_WEBHOOK_URL` | - | Slack Incoming Webhook URL to post feedback to (required if `DEMO_MODE=false`) |
+| `DEMO_MODE` | `true` | When `true` (default), simulates posting. Set to `false` to post your message to a demo Slack workspace |
+| `SLACK_WEBHOOK_URL` | demo webhook (Compose) | Slack Incoming Webhook URL to post feedback to (required if `DEMO_MODE=false`; Compose defaults to a demo workspace) |
 
 ### Open WebUI Pipe Valves
 
