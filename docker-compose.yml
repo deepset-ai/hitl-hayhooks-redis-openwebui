@@ -24,11 +24,11 @@ services:
       # Redis connection (uses container name)
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      # Anonymous feedback tool - by default posts for real to a Slack workspace we set up just for this
-      # just for this (DEMO_MODE=false). Set DEMO_MODE=true to only simulate posting, or replace
-      # SLACK_WEBHOOK_URL with your own webhook to post to your own workspace.
-      - DEMO_MODE=${DEMO_MODE-false}
-      - SLACK_WEBHOOK_URL=https://hooks.slack.com/services/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
+      # Anonymous feedback tool - defaults to DEMO_MODE=true, which only simulates posting to
+      # Slack (nothing is actually sent). To post for real, set DEMO_MODE=false and provide your
+      # own SLACK_WEBHOOK_URL (a Slack Incoming Webhook URL for the channel you want to post to).
+      - DEMO_MODE=${DEMO_MODE-true}
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL-}
     depends_on:
       - redis
     networks:

@@ -162,9 +162,10 @@ FEATURE_EXPLANATIONS: dict[str, str] = {
     ),
 }
 
-# Slack configuration for the HITL-gated feedback tool. Defaults to posting for real
-# (DEMO_MODE unset -> "false"); set DEMO_MODE=true to only simulate posting.
-DEMO_MODE = os.environ.get("DEMO_MODE", "false").strip().lower() not in ("false", "0", "no")
+# Slack configuration for the HITL-gated feedback tool. Defaults to demo mode
+# (DEMO_MODE unset -> "true"), which only simulates posting - nothing is sent to Slack.
+# To post for real, set DEMO_MODE=false and provide your own SLACK_WEBHOOK_URL.
+DEMO_MODE = os.environ.get("DEMO_MODE", "true").strip().lower() not in ("false", "0", "no")
 SLACK_WEBHOOK_URL = os.environ.get("SLACK_WEBHOOK_URL", "")
 
 

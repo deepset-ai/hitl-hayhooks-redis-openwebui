@@ -220,8 +220,10 @@ docker run -d \
 4. The Pipe function will forward your message to Hayhooks
 5. When the Agent decides to call a tool, a confirmation dialog will appear
 6. Click **Confirm** to approve or **Cancel** to reject the tool execution
-7. For `submit_feedback_to_deepset`, approving posts the message straight to deepset's Slack -
-   no email or other personal details are ever collected from you
+7. For `submit_feedback_to_deepset`, approving would post the message to Slack - but by default the
+   demo runs in `DEMO_MODE=true`, so posting is only simulated and nothing is actually sent. To post
+   for real, set `DEMO_MODE=false` and configure your own `SLACK_WEBHOOK_URL`. Either way, no email
+   or other personal details are ever collected from you
 8. The response will stream back through the Pipe function to your chat
 
 ## Configuration
@@ -233,8 +235,8 @@ docker run -d \
 | `OPENAI_API_KEY` | - | Required. Your OpenAI API key |
 | `REDIS_HOST` | `localhost` | Redis server hostname |
 | `REDIS_PORT` | `6379` | Redis server port |
-| `DEMO_MODE` | `false` | When `false` (default), posts your message for real to a Slack workspace we set up just for this. Set to `true` to only simulate posting |
-| `SLACK_WEBHOOK_URL` | webhook (Compose) | Slack Incoming Webhook URL to post feedback to (used when `DEMO_MODE=false`; Compose defaults to a slack workspace  we set up just for this - replace it with your own to post elsewhere) |
+| `DEMO_MODE` | `true` | When `true` (default), only simulates posting to Slack - nothing is actually sent. Set to `false` to post for real (requires `SLACK_WEBHOOK_URL`) |
+| `SLACK_WEBHOOK_URL` | - | Slack Incoming Webhook URL to post feedback to. Required only when `DEMO_MODE=false`; add your own webhook for the channel you want to post to |
 
 ### Open WebUI Pipe Valves
 
@@ -259,7 +261,7 @@ read-only tools that execute immediately and the one consequential tool that req
 | `recommend_repo` | Recommend relevant deepset-ai GitHub repos for a given interest | No (read-only) |
 | `explain_feature` | Explain a specific Haystack 3.0 feature (hooks, skills, agent pack, etc.) | No (read-only) |
 | `search_haystack_docs` | Search the live Haystack documentation via deepset's hosted [docs MCP server](https://docs.haystack.deepset.ai/docs/docs-mcp-server) | No (read-only) |
-| `submit_feedback_to_deepset` | Post anonymous feedback (a question, comment, or feature request) to deepset's Slack | Yes (posts to a real channel) |
+| `submit_feedback_to_deepset` | Post anonymous feedback (a question, comment, or feature request) to deepset's Slack | Yes (posts to Slack when `DEMO_MODE=false`) |
 
 Which tools require approval is controlled entirely by which ones are registered in the
 `ConfirmationHook`'s `confirmation_strategies` dict in `pipeline_wrapper.py` — a tool left out of
@@ -273,7 +275,9 @@ and only connects the first time the tool is actually used.
 `submit_feedback_to_deepset` is the sensitive action itself: once approved, it posts straight to
 a Slack channel via an Incoming Webhook, with nothing left for a human to do afterward - which is
 exactly why it requires approval first, rather than just drafting something for the user to send.
-No email or other personal details are ever collected, so the feedback is fully anonymous. See
+By default the demo runs in `DEMO_MODE=true`, so this posting is only simulated and nothing is sent;
+set `DEMO_MODE=false` and provide your own `SLACK_WEBHOOK_URL` to post for real. No email or other
+personal details are ever collected, so the feedback is fully anonymous. See
 [Environment Variables (Hayhooks)](#environment-variables-hayhooks) for configuring the webhook.
 
 ## Adding Custom Tools
