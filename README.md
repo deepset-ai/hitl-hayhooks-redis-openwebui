@@ -84,8 +84,8 @@ Redis is used as a message broker to coordinate approval decisions between the P
 Open WebUI                                                   Hayhooks
 Frontend              Pipe Function                          /Agent                 Redis
  │                        │                                    │                       │
- │  "Tell the deepset team │                                    │                       │
- │   I love the HITL hooks"│                                    │                       │
+ │"Tell the deepset team  │                                    │                       │
+ │  I love the HITL hooks"│                                    │                       │
  │───────────────────────▶│                                    │                       │
  │                        │  POST /hitl/run                    │                       │
  │                        │───────────────────────────────────▶│                       │
@@ -94,11 +94,10 @@ Frontend              Pipe Function                          /Agent             
  │                        │◀───────────────────────────────────│                       │
  │                        │                                    │   BLPOP (waiting)     │
  │                        │                                    │──────────────────────▶│
- │  🔧 Approve submit_feedback│                                 │                       │
- │     _to_deepset?         │                                   │                       │
+ │  🔧 Approve feedback?  │                                     │                       │
  │◀───────────────────────│                                    │                       │
  │                        │                                    │                       │
- │  ✅ Yes / ❌ No        │                                    │                       │
+ │  ✅ Yes / ❌ No         │                                    │                       │
  │───────────────────────▶│                                    │                       │
  │                        │   LPUSH "approved"                 │                       │
  │                        │───────────────────────────────────────────────────────────▶│
@@ -108,7 +107,7 @@ Frontend              Pipe Function                          /Agent             
  │                        │    SSE: text (result)              │                       │
  │                        │◀───────────────────────────────────│                       │
  │  "Feedback submitted   │                                    │                       │
- │   anonymously"          │                                   │                       │
+ │   anonymously"         │                                    │                       │
  │◀───────────────────────│                                    │                       │
  │                        │                                    │                       │
 ```
@@ -216,6 +215,7 @@ docker run -d \
    - _"What happened on day 2 of launch week?"_ (`get_launch_week_day`, read-only)
    - _"What are Agent hooks?"_ (`explain_feature`, read-only)
    - _"What repo should I look at for deploying pipelines?"_ (`recommend_repo`, read-only)
+   - _"How do I write a custom Haystack component?"_ (`search_haystack_docs`, read-only, queries [Haystack's hosted docs MCP server](https://docs.haystack.deepset.ai/docs/docs-mcp-server) live)
    - _"Tell the deepset team I love the HITL hooks"_ (`submit_feedback_to_deepset`, requires approval)
 4. The Pipe function will forward your message to Hayhooks
 5. When the Agent decides to call a tool, a confirmation dialog will appear
@@ -258,11 +258,17 @@ read-only tools that execute immediately and the one consequential tool that req
 | `whats_new_today` | Get today's launch week drop, based on the current date | No (read-only) |
 | `recommend_repo` | Recommend relevant deepset-ai GitHub repos for a given interest | No (read-only) |
 | `explain_feature` | Explain a specific Haystack 3.0 feature (hooks, skills, agent pack, etc.) | No (read-only) |
+| `search_haystack_docs` | Search the live Haystack documentation via deepset's hosted [docs MCP server](https://docs.haystack.deepset.ai/docs/docs-mcp-server) | No (read-only) |
 | `submit_feedback_to_deepset` | Post anonymous feedback (a question, comment, or feature request) to deepset's Slack | Yes (posts to a real channel, no personal details collected) |
 
 Which tools require approval is controlled entirely by which ones are registered in the
 `ConfirmationHook`'s `confirmation_strategies` dict in `pipeline_wrapper.py` — a tool left out of
 that dict executes immediately, with no human in the loop.
+
+`search_haystack_docs` is a real [MCPTool](https://docs.haystack.deepset.ai/docs/mcptool) connecting
+to deepset's public docs MCP server over Streamable HTTP - no API key needed. The connection is lazy
+(`eager_connect=False`, the default), so it doesn't block pipeline startup on an external network call,
+and only connects the first time the tool is actually used.
 
 `submit_feedback_to_deepset` is the sensitive action itself: once approved, it posts straight to
 a Slack channel via an Incoming Webhook, with nothing left for a human to do afterward - which is

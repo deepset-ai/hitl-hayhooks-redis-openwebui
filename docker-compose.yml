@@ -60,6 +60,18 @@ services:
             "content": "What are Agent hooks in Haystack 3.0?"
           },
           {
+            "title": ["Recap a launch day"],
+            "content": "What happened on day 3 of launch week?"
+          },
+          {
+            "title": ["Find a repo"],
+            "content": "What repo should I look at for human-in-the-loop patterns?"
+          },
+          {
+            "title": ["Search the docs"],
+            "content": "How do I write a custom Haystack component?"
+          },
+          {
             "title": ["Send feedback"],
             "content": "Tell the deepset team I love the human-in-the-loop hooks"
           }

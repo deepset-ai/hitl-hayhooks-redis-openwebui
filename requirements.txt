@@ -1,9 +1,7 @@
 # Hayhooks Server Dependencies
 # (Open WebUI pipe dependencies are installed via frontmatter in open-webui-pipe.py)
 
-# NOTE: haystack-ai 3.0 and the matching hayhooks release are Launch Week bleeding edge and
-# aren't on PyPI yet (haystack-ai tops out at 2.21.0, hayhooks at 1.8.0) - installing from the
-# main branch until the real releases land. Switch back to version pins once they're published.
-hayhooks @ git+https://github.com/deepset-ai/hayhooks.git@main
+hayhooks
 redis[hiredis]
-haystack-ai @ git+https://github.com/deepset-ai/haystack.git@main
+haystack-ai>=3.0.0
+mcp-haystack

@@ -19,6 +19,7 @@ from haystack.hooks.human_in_the_loop import (
     ToolExecutionDecision
 )
 from haystack.hooks.human_in_the_loop.types import ConfirmationStrategy
+from haystack_integrations.tools.mcp import MCPTool, StreamableHttpServerInfo
 from hayhooks import BasePipelineWrapper, async_streaming_generator, log
 from hayhooks.server.pipelines.sse import SSEStream
 
@@ -304,6 +305,11 @@ explain_feature_tool = create_tool_from_function(
     description="Explain a specific Haystack 3.0 Launch Week feature.",
 )
 
+search_haystack_docs_tool = MCPTool(
+    name="search_haystack_docs",
+    server_info=StreamableHttpServerInfo(url="https://docs.haystack.deepset.ai/api/mcp"),
+)
+
 submit_feedback_tool = create_tool_from_function(
     function=submit_feedback_to_deepset,
     name="submit_feedback_to_deepset",
@@ -500,7 +506,9 @@ class PipelineWrapper(BasePipelineWrapper):
             chat_generator=OpenAIChatGenerator(model="gpt-4o-mini"),
             system_prompt=(
                 "You're the Haystack 3.0 Launch Week Concierge. Help visitors learn about the daily "
-                "launch week drops, explain new features, and recommend helpful deepset-ai repos. If "
+                "launch week drops, explain new features, and recommend helpful deepset-ai repos. For "
+                "general Haystack questions beyond launch week (e.g. how a component or API works), "
+                "use search_haystack_docs to search the real documentation instead of guessing. If "
                 "someone wants to share a question, comment, or feature request with the deepset team, "
                 "use submit_feedback_to_deepset to submit it anonymously - no need to ask for their "
                 "name or email."
@@ -510,6 +518,7 @@ class PipelineWrapper(BasePipelineWrapper):
                 whats_new_today_tool,
                 recommend_repo_tool,
                 explain_feature_tool,
+                search_haystack_docs_tool,
                 submit_feedback_tool,
             ],
             hooks={
