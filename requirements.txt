@@ -4,3 +4,4 @@
 hayhooks>=1.22.0
 redis[hiredis]
 haystack-ai>=3.0.0
+mcp-haystack

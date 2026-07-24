@@ -1,8 +1,13 @@
 # pyright: reportMissingImports=false, reportMissingTypeStubs=false
 import asyncio
+import json
 import os
+import urllib.error
+import urllib.request
 import uuid
+from datetime import date, datetime
 from typing import Any, AsyncGenerator, Union
+from zoneinfo import ZoneInfo
 
 import redis.asyncio as redis
 from haystack.components.generators.chat import OpenAIChatGenerator
@@ -11,55 +16,303 @@ from haystack.tools import create_tool_from_function
 from haystack.components.agents.agent import Agent
 from haystack.hooks.human_in_the_loop import (
     ConfirmationHook,
-    ToolExecutionDecision,
+    ToolExecutionDecision
 )
-from haystack.hooks.human_in_the_loop.types import (
-    ConfirmationStrategy,
-)
+from haystack.hooks.human_in_the_loop.types import ConfirmationStrategy
+from haystack_integrations.tools.mcp import MCPTool, StreamableHttpServerInfo
 from hayhooks import BasePipelineWrapper, async_streaming_generator, log
 from hayhooks.server.pipelines.sse import SSEStream
-from datetime import datetime
-from zoneinfo import ZoneInfo
+
+
+# Haystack 3.0 Launch Week ran Monday July 20 - Friday July 24, 2026, timed to CET.
+LAUNCH_WEEK_START = date(2026, 7, 20)
+
+LAUNCH_WEEK_DAYS: dict[int, dict[str, str]] = {
+    1: {
+        "date": "Monday, July 20",
+        "title": "Haystack 3.0 Release",
+        "summary": (
+            "Agents move to the center of the framework. New Agent hooks (before_run, before_llm, "
+            "before_tool, after_tool, on_exit, after_run), skills as first-class citizens, and a much "
+            "lighter core (30+ components spun out into separate integration packages)."
+        ),
+        "url": "https://haystack.deepset.ai/blog/haystack-3-release",
+    },
+    2: {
+        "date": "Tuesday, July 21",
+        "title": "Agent Budget & Cost Control",
+        "summary": (
+            "Turn agent metadata (step_count, token_usage, tool_call_counts) into an enforceable budget "
+            "policy via hooks, with soft and hard token limits."
+        ),
+        "url": "https://haystack.deepset.ai/cookbook/cost_aware_agent",
+    },
+    3: {
+        "date": "Wednesday, July 22",
+        "title": "Agent Pack",
+        "summary": (
+            "Pre-built, complex agents ready to deploy: a Deep Research Agent and a metadata-aware "
+            "Advanced RAG Agent, usable in a single line or fully customized."
+        ),
+        "url": "https://haystack.deepset.ai/tutorials/50_using_pre_built_agents_from_agent_pack",
+    },
+    4: {
+        "date": "Thursday, July 23",
+        "title": "Computer-Use Agent with Skills",
+        "summary": (
+            "A local agent with real bash/shell access, SkillToolset for progressive disclosure of "
+            "instructions, and human-in-the-loop via hooks before it touches the machine."
+        ),
+        "url": "https://haystack.deepset.ai/cookbook/computer_use_agent_with_skills",
+    },
+    5: {
+        "date": "Friday, July 24",
+        "title": "Grand Finale (this repo!)",
+        "summary": (
+            "A deployed, distributed take on the same before_tool confirmation hooks from Day 4: "
+            "Hayhooks + Redis + Open WebUI, so a human can approve or reject a tool call from a real "
+            "chat UI across separate services, not just a blocking console prompt."
+        ),
+        "url": "https://github.com/deepset-ai/hitl-hayhooks-redis-openwebui",
+    },
+}
+
+# Verified against the deepset-ai GitHub org - github.com/deepset-ai
+HELPFUL_REPOS: dict[str, list[dict[str, str]]] = {
+    "learn": [
+        {
+            "name": "haystack-tutorials",
+            "description": "All the official Haystack tutorials.",
+            "url": "https://github.com/deepset-ai/haystack-tutorials",
+        },
+        {
+            "name": "haystack-cookbook",
+            "description": "Example notebooks covering advanced Haystack use cases.",
+            "url": "https://github.com/deepset-ai/haystack-cookbook",
+        },
+    ],
+    "deploy": [
+        {
+            "name": "hayhooks",
+            "description": "Deploy Haystack pipelines and agents as REST APIs and MCP tools.",
+            "url": "https://github.com/deepset-ai/hayhooks",
+        },
+    ],
+    "demos": [
+        {
+            "name": "haystack-demos",
+            "description": "Fully working applications built with Haystack.",
+            "url": "https://github.com/deepset-ai/haystack-demos",
+        }
+    ],
+    "hitl": [
+        {
+            "name": "hitl-hayhooks-redis-openwebui",
+            "description": "This repo! A deployed, Redis-based human-in-the-loop pattern for Haystack Agents.",
+            "url": "https://github.com/deepset-ai/hitl-hayhooks-redis-openwebui",
+        },
+    ],
+    "extend": [
+        {
+            "name": "haystack-core-integrations",
+            "description": "Official integration packages (components, document stores, and the like).",
+            "url": "https://github.com/deepset-ai/haystack-core-integrations",
+        },
+        {
+            "name": "custom-component",
+            "description": "A template repo for building and publishing your own Haystack component.",
+            "url": "https://github.com/deepset-ai/custom-component",
+        },
+        {
+            "name": "haystack-integrations",
+            "description": "List of Haystack integrations.",
+            "url": "https://github.com/deepset-ai/haystack-integrations",
+        },
+    ],
+}
+
+FEATURE_EXPLANATIONS: dict[str, str] = {
+    "hooks": (
+        "Agent hooks are extension points in the Agent's run loop - before_run, before_llm, before_tool, "
+        "after_tool, on_exit, after_run - that let you validate inputs, enforce guardrails, or ask a human "
+        "before a sensitive action, without modifying the Agent's core logic."
+    ),
+    "skills": (
+        "Skills are first-class citizens in Haystack 3.0. A SkillToolset exposes skill names and short "
+        "descriptions to the model up front, and only loads full instructions when the model actually "
+        "picks one - keeping context lean while still supporting a large toolbox."
+    ),
+    "agent pack": (
+        "Agent Pack ships pre-built, complex agents ready to deploy - like a Deep Research Agent and a "
+        "metadata-aware Advanced RAG Agent - usable in a single line or fully customized."
+    ),
+    "budget": (
+        "Agent budget control turns runtime metadata (step_count, token_usage, tool_call_counts) into an "
+        "enforceable policy via hooks, so an over-budget run can be stopped before its next LLM call."
+    ),
+    "computer-use agent": (
+        "The Computer-Use Agent gives a local agent real bash/shell access (e.g. via Ollama), gated by the "
+        "same before_tool confirmation hooks this repo uses - a human approves each command before it "
+        "touches the machine."
+    ),
+    "lighter core": (
+        "Haystack 3.0's core is lighter: 30+ components moved out into independent integration packages "
+        "and the experimental package is no longer a core dependency, shrinking install footprint and "
+        "supply-chain surface."
+    ),
+}
+
+# Slack configuration for the HITL-gated feedback tool. Defaults to posting for real
+# (DEMO_MODE unset -> "false"); set DEMO_MODE=true to only simulate posting.
+DEMO_MODE = os.environ.get("DEMO_MODE", "false").strip().lower() not in ("false", "0", "no")
+SLACK_WEBHOOK_URL = os.environ.get("SLACK_WEBHOOK_URL", "")
 
 
 # Tool functions
-def weather_function(location: str) -> str:
+def get_launch_week_day(day: int) -> str:
     """
-    Provides weather information for a given location.
+    Get the theme, summary, and link for a specific day of Haystack 3.0 Launch Week. Read-only,
+    so it runs without approval.
 
-    :param location: The location to get weather for.
-    :returns: Weather information string.
+    :param day: The launch week day number, from 1 to 5 (Monday-Friday).
+    :returns: The day's date, title, summary, and link, or an error message if out of range.
     """
-    return f"The weather in {location} is cloudy."
+    info = LAUNCH_WEEK_DAYS.get(day)
+    if not info:
+        return f"Launch week only runs Monday-Friday (days 1-5). '{day}' is out of range."
+    return f"Day {day} - {info['date']}: {info['title']}\n{info['summary']}\nMore: {info['url']}"
 
 
-def get_time(timezone: str = "UTC") -> str:
+def whats_new_today() -> str:
     """
-    Get the current time in a specific timezone.
+    Get today's Haystack 3.0 Launch Week drop, based on the current date. Read-only, so it runs
+    without approval.
 
-    :param timezone: The timezone to get time for (e.g., 'UTC', 'Europe/Rome', 'America/New_York').
-    :returns: Current time string in the specified timezone.
+    :returns: Today's launch week day info, or a message if launch week isn't currently running.
     """
+    today = datetime.now(ZoneInfo("Europe/Berlin")).date()
+    offset = (today - LAUNCH_WEEK_START).days
+    if 0 <= offset <= 4:
+        return get_launch_week_day(offset + 1)
+    return (
+        "Haystack 3.0 Launch Week ran Monday July 20 - Friday July 24, 2026. Check "
+        "https://haystack.deepset.ai/launch-week for the full recap."
+    )
+
+
+def recommend_repo(interest: str) -> str:
+    """
+    Recommend relevant deepset-ai GitHub repos based on what someone is trying to do. Read-only,
+    so it runs without approval.
+
+    :param interest: A free-text description of what the person is interested in
+        (e.g. 'learning Haystack', 'deploying pipelines', 'human in the loop', 'building demos').
+    :returns: A list of matching repos with short descriptions and links.
+    """
+    interest_lower = interest.lower()
+    keyword_map = {
+        "learn": ["learn", "tutorial", "cookbook", "beginner", "getting started"],
+        "deploy": ["deploy", "api", "rest", "production", "serve"],
+        "demos": ["demo", "app", "example", "ui"],
+        "hitl": ["human in the loop", "hitl", "approval", "confirm", "confirmation"],
+        "extend": ["integration", "extend", "custom component", "plugin"],
+    }
+    matched_categories = [
+        category for category, keywords in keyword_map.items() if any(kw in interest_lower for kw in keywords)
+    ]
+    if not matched_categories:
+        matched_categories = list(HELPFUL_REPOS.keys())
+
+    lines = [
+        f"- {repo['name']}: {repo['description']} ({repo['url']})"
+        for category in matched_categories
+        for repo in HELPFUL_REPOS[category]
+    ]
+    return "\n".join(lines)
+
+
+def explain_feature(feature: str) -> str:
+    """
+    Explain a specific Haystack 3.0 Launch Week feature. Read-only, so it runs without approval.
+
+    :param feature: The feature to explain (e.g. 'hooks', 'skills', 'agent pack', 'budget',
+        'computer-use agent', 'lighter core').
+    :returns: A short explanation, or a list of known features if the given one isn't recognized.
+    """
+    feature_lower = feature.lower().strip()
+    for key, explanation in FEATURE_EXPLANATIONS.items():
+        if key in feature_lower or feature_lower in key:
+            return explanation
+    return f"I don't have an explanation for '{feature}'. Known features: " + ", ".join(FEATURE_EXPLANATIONS.keys())
+
+
+def submit_feedback_to_deepset(message: str) -> str:
+    """
+    Submit anonymous feedback - a question, comment, or feature request - to deepset's Slack.
+    No email or other personal details are collected. This is the sensitive action itself - it
+    posts to a real Slack channel the moment it's approved, with nothing left for a human to do
+    afterward, which is exactly why it requires approval first.
+
+    :param message: The feedback, question, or feature request to submit.
+    :returns: Confirmation that the feedback was submitted (or simulated, in demo mode).
+    """
+    if DEMO_MODE:
+        log.info(f"[DEMO_MODE] Would post anonymous Slack feedback: '{message}'")
+        return f"[Demo mode] Feedback was simulated, not actually submitted.\nMessage: {message}"
+
+    if not SLACK_WEBHOOK_URL:
+        log.error("Slack feedback webhook isn't configured (missing SLACK_WEBHOOK_URL)")
+        return "Failed to submit feedback: the Slack webhook isn't configured yet."
+
+    payload = json.dumps({"text": f"📨 Anonymous Launch Week feedback:\n>{message}"}).encode("utf-8")
+    request = urllib.request.Request(
+        SLACK_WEBHOOK_URL, data=payload, headers={"Content-Type": "application/json"}, method="POST"
+    )
 
     try:
-        tz = ZoneInfo(timezone)
-        now = datetime.now(tz)
-        return f"Current time in {timezone}: {now.strftime('%Y-%m-%d %H:%M:%S %Z')}"
-    except Exception as e:
-        return f"Error getting time for timezone '{timezone}': {e}"
+        with urllib.request.urlopen(request, timeout=10) as response:
+            response.read()
+        log.info("Posted anonymous feedback to Slack")
+        return "Feedback submitted to deepset anonymously - no personal details were sent."
+    except (urllib.error.HTTPError, urllib.error.URLError) as e:
+        log.error(f"Failed to post Slack feedback: {e}", exc_info=True)
+        return f"Failed to submit feedback: {e}"
 
 
 # Create tools
-weather_tool = create_tool_from_function(
-    function=weather_function,
-    name="weather_tool",
-    description="Provides weather information for a given location.",
+get_launch_week_day_tool = create_tool_from_function(
+    function=get_launch_week_day,
+    name="get_launch_week_day",
+    description="Get the theme, summary, and link for a specific day (1-5) of Haystack 3.0 Launch Week.",
 )
 
-time_tool = create_tool_from_function(
-    function=get_time,
-    name="get_time",
-    description="Get the current time in a specific timezone.",
+whats_new_today_tool = create_tool_from_function(
+    function=whats_new_today,
+    name="whats_new_today",
+    description="Get today's Haystack 3.0 Launch Week drop, based on the current date.",
+)
+
+recommend_repo_tool = create_tool_from_function(
+    function=recommend_repo,
+    name="recommend_repo",
+    description="Recommend relevant deepset-ai GitHub repos based on what someone is trying to do.",
+)
+
+explain_feature_tool = create_tool_from_function(
+    function=explain_feature,
+    name="explain_feature",
+    description="Explain a specific Haystack 3.0 Launch Week feature.",
+)
+
+search_haystack_docs_tool = MCPTool(
+    name="search_haystack_docs",
+    server_info=StreamableHttpServerInfo(url="https://docs.haystack.deepset.ai/api/mcp"),
+)
+
+submit_feedback_tool = create_tool_from_function(
+    function=submit_feedback_to_deepset,
+    name="submit_feedback_to_deepset",
+    description="Submit anonymous feedback (a question, comment, or feature request) to deepset's Slack.",
 )
 
 
@@ -250,14 +503,31 @@ class PipelineWrapper(BasePipelineWrapper):
         # HITL is a "before_tool" hook; per-request state is passed via the hook_context run argument
         self.agent = Agent(
             chat_generator=OpenAIChatGenerator(model="gpt-4o-mini"),
-            system_prompt="You're a helpful agent with access to tools. Use them when needed.",
-            tools=[weather_tool, time_tool],
+            system_prompt=(
+                "You're the Haystack 3.0 Launch Week Concierge. Help visitors learn about the daily "
+                "launch week drops, explain new features, and recommend helpful deepset-ai repos. For "
+                "general Haystack questions beyond launch week (e.g. how a component or API works), "
+                "use search_haystack_docs to search the real documentation instead of guessing. If "
+                "someone wants to share a question, comment, or feature request with the deepset team, "
+                "use submit_feedback_to_deepset to submit it anonymously - no need to ask for their "
+                "name or email."
+            ),
+            tools=[
+                get_launch_week_day_tool,
+                whats_new_today_tool,
+                recommend_repo_tool,
+                explain_feature_tool,
+                search_haystack_docs_tool,
+                submit_feedback_tool,
+            ],
             hooks={
                 "before_tool": [
                     ConfirmationHook(
+                        # Only the feedback submission reaches deepset's Slack and requires
+                        # approval - the informational tools are read-only and execute immediately
+                        # since they have no entry here.
                         confirmation_strategies={
-                            weather_tool.name: self.confirmation_strategy,
-                            time_tool.name: self.confirmation_strategy,
+                            submit_feedback_tool.name: self.confirmation_strategy,
                         }
                     )
                 ]

@@ -2,6 +2,10 @@
 
 A Redis-based Human-in-the-Loop implementation for Hayhooks / Haystack Agents, integrated with Open WebUI for interactive tool approval workflows.
 
+The default pipeline is a **Haystack 3.0 Launch Week Concierge**: it answers questions about the
+launch week, explains new features, and recommends deepset-ai repos freely - but the moment it
+wants to post anonymous feedback to deepset's Slack on your behalf, a human has to approve it first.
+
 ![HITL Demo](./assets/hitl-demo.gif)
 
 ## Table of Contents
@@ -80,7 +84,8 @@ Redis is used as a message broker to coordinate approval decisions between the P
 Open WebUI                                                   Hayhooks
 Frontend              Pipe Function                          /Agent                 Redis
  │                        │                                    │                       │
- │  "What's the weather?" │                                    │                       │
+ │"Tell the deepset team  │                                    │                       │
+ │  I love the HITL hooks"│                                    │                       │
  │───────────────────────▶│                                    │                       │
  │                        │  POST /hitl/run                    │                       │
  │                        │───────────────────────────────────▶│                       │
@@ -89,7 +94,7 @@ Frontend              Pipe Function                          /Agent             
  │                        │◀───────────────────────────────────│                       │
  │                        │                                    │   BLPOP (waiting)     │
  │                        │                                    │──────────────────────▶│
- │  🔧 Approve tool?      │                                    │                       │
+ │  🔧 Approve feedback?  │                                    │                       │
  │◀───────────────────────│                                    │                       │
  │                        │                                    │                       │
  │  ✅ Yes / ❌ No        │                                    │                       │
@@ -101,7 +106,8 @@ Frontend              Pipe Function                          /Agent             
  │                        │                                    │                       │
  │                        │    SSE: text (result)              │                       │
  │                        │◀───────────────────────────────────│                       │
- │  "Weather is cloudy"   │                                    │                       │
+ │  "Feedback submitted   │                                    │                       │
+ │   anonymously"         │                                    │                       │
  │◀───────────────────────│                                    │                       │
  │                        │                                    │                       │
 ```
@@ -205,12 +211,18 @@ docker run -d \
 1. In Open WebUI, start a new chat
 2. Select the **Hayhooks HITL Pipe** as your model (this routes requests through the Pipe function)
 3. Ask something that triggers a tool call, e.g.:
-   - _"What's the weather in Rome?"_
-   - _"What time is it in UTC?"_
+   - _"What's new today in Haystack 3.0 Launch Week?"_ (`whats_new_today`, read-only)
+   - _"What happened on day 2 of launch week?"_ (`get_launch_week_day`, read-only)
+   - _"What are Agent hooks?"_ (`explain_feature`, read-only)
+   - _"What repo should I look at for deploying pipelines?"_ (`recommend_repo`, read-only)
+   - _"How do I write a custom Haystack component?"_ (`search_haystack_docs`, read-only, queries [Haystack's hosted docs MCP server](https://docs.haystack.deepset.ai/docs/docs-mcp-server) live)
+   - _"Tell the deepset team I love the HITL hooks"_ (`submit_feedback_to_deepset`, requires approval)
 4. The Pipe function will forward your message to Hayhooks
 5. When the Agent decides to call a tool, a confirmation dialog will appear
 6. Click **Confirm** to approve or **Cancel** to reject the tool execution
-7. The response will stream back through the Pipe function to your chat
+7. For `submit_feedback_to_deepset`, approving posts the message straight to deepset's Slack -
+   no email or other personal details are ever collected from you
+8. The response will stream back through the Pipe function to your chat
 
 ## Configuration
 
@@ -221,6 +233,8 @@ docker run -d \
 | `OPENAI_API_KEY` | - | Required. Your OpenAI API key |
 | `REDIS_HOST` | `localhost` | Redis server hostname |
 | `REDIS_PORT` | `6379` | Redis server port |
+| `DEMO_MODE` | `false` | When `false` (default), posts your message for real to a Slack workspace we set up just for this. Set to `true` to only simulate posting |
+| `SLACK_WEBHOOK_URL` | webhook (Compose) | Slack Incoming Webhook URL to post feedback to (used when `DEMO_MODE=false`; Compose defaults to a slack workspace  we set up just for this - replace it with your own to post elsewhere) |
 
 ### Open WebUI Pipe Valves
 
@@ -235,12 +249,32 @@ docker run -d \
 
 ## Available Tools
 
-The default configuration includes two example tools:
+The default configuration is a Haystack 3.0 Launch Week Concierge, with a deliberate split between
+read-only tools that execute immediately and the one consequential tool that requires human approval:
 
-| Tool | Description |
-|------|-------------|
-| `weather_tool` | Returns weather information for a location |
-| `get_time` | Returns current time in a timezone |
+| Tool | Description | Requires Approval? |
+|------|-------------|---------------------|
+| `get_launch_week_day` | Get the theme, summary, and link for a specific launch week day (1-5) | No (read-only) |
+| `whats_new_today` | Get today's launch week drop, based on the current date | No (read-only) |
+| `recommend_repo` | Recommend relevant deepset-ai GitHub repos for a given interest | No (read-only) |
+| `explain_feature` | Explain a specific Haystack 3.0 feature (hooks, skills, agent pack, etc.) | No (read-only) |
+| `search_haystack_docs` | Search the live Haystack documentation via deepset's hosted [docs MCP server](https://docs.haystack.deepset.ai/docs/docs-mcp-server) | No (read-only) |
+| `submit_feedback_to_deepset` | Post anonymous feedback (a question, comment, or feature request) to deepset's Slack | Yes (posts to a real channel) |
+
+Which tools require approval is controlled entirely by which ones are registered in the
+`ConfirmationHook`'s `confirmation_strategies` dict in `pipeline_wrapper.py` — a tool left out of
+that dict executes immediately, with no human in the loop.
+
+`search_haystack_docs` is a real [MCPTool](https://docs.haystack.deepset.ai/docs/mcptool) connecting
+to deepset's public docs MCP server over Streamable HTTP - no API key needed. The connection is lazy
+(`eager_connect=False`, the default), so it doesn't block pipeline startup on an external network call,
+and only connects the first time the tool is actually used.
+
+`submit_feedback_to_deepset` is the sensitive action itself: once approved, it posts straight to
+a Slack channel via an Incoming Webhook, with nothing left for a human to do afterward - which is
+exactly why it requires approval first, rather than just drafting something for the user to send.
+No email or other personal details are ever collected, so the feedback is fully anonymous. See
+[Environment Variables (Hayhooks)](#environment-variables-hayhooks) for configuring the webhook.
 
 ## Adding Custom Tools
 
@@ -259,10 +293,12 @@ custom_tool = create_tool_from_function(
     description="Description shown to the LLM",
 )
 
-# Add to the agent tools list and to the ConfirmationHook's confirmation_strategies dict
+# Add to the agent tools list. Only add it to the ConfirmationHook's confirmation_strategies
+# dict if it should require human approval before running - leave it out for tools that are
+# safe to auto-execute (e.g. read-only lookups).
 self.agent = Agent(
     # ...
-    tools=[weather_tool, time_tool, custom_tool],
+    tools=[get_launch_week_day_tool, whats_new_today_tool, recommend_repo_tool, custom_tool],
     hooks={
         "before_tool": [
             ConfirmationHook(

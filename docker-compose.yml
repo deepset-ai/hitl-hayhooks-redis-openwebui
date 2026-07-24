@@ -24,6 +24,11 @@ services:
       # Redis connection (uses container name)
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      # Anonymous feedback tool - by default posts for real to a Slack workspace we set up just for this
+      # just for this (DEMO_MODE=false). Set DEMO_MODE=true to only simulate posting, or replace
+      # SLACK_WEBHOOK_URL with your own webhook to post to your own workspace.
+      - DEMO_MODE=${DEMO_MODE-false}
+      - SLACK_WEBHOOK_URL=https://hooks.slack.com/services/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
     depends_on:
       - redis
     networks:
@@ -48,12 +53,28 @@ services:
       DEFAULT_PROMPT_SUGGESTIONS: |-
         [
           {
-            "title": ["Weather in Berlin"],
-            "content": "How is the weather in Berlin?"
+            "title": ["What's new today?"],
+            "content": "What's new today in Haystack 3.0 Launch Week?"
           },
           {
-            "title": ["Time in London"],
-            "content": "What is the current time in London?"
+            "title": ["Explain a feature"],
+            "content": "What are Agent hooks in Haystack 3.0?"
+          },
+          {
+            "title": ["Recap a launch day"],
+            "content": "What happened on day 3 of launch week?"
+          },
+          {
+            "title": ["Find a repo"],
+            "content": "What repo should I look at for human-in-the-loop patterns?"
+          },
+          {
+            "title": ["Search the docs"],
+            "content": "How do I write a custom Haystack component?"
+          },
+          {
+            "title": ["Send feedback"],
+            "content": "Tell the deepset team I love the human-in-the-loop hooks"
           }
         ]
     depends_on:
