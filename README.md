@@ -8,8 +8,15 @@ wants to post anonymous feedback to deepset's Slack on your behalf, a human has 
 
 ![HITL Demo](./assets/hitl-demo.gif)
 
+## 🎥 Walkthrough
+
+<a href="https://youtu.be/WsGtgi8yaOo">
+  <img src="https://img.youtube.com/vi/WsGtgi8yaOo/maxresdefault.jpg" alt="Watch the walkthrough" width="480">
+</a>
+
 ## Table of Contents
 
+- [Walkthrough](#walkthrough)
 - [Overview](#overview)
 - [Architecture](#architecture)
   - [Request Flow](#request-flow)
