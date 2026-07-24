@@ -9,12 +9,12 @@ from haystack.components.generators.chat import OpenAIChatGenerator
 from haystack.dataclasses import ChatMessage, StreamingChunk
 from haystack.tools import create_tool_from_function
 from haystack.components.agents.agent import Agent
-from haystack.hooks.human_in_the_loop import ConfirmationHook
+from haystack.hooks.human_in_the_loop import (
+    ConfirmationHook,
+    ToolExecutionDecision,
+)
 from haystack.hooks.human_in_the_loop.types import (
     ConfirmationStrategy,
-)
-from haystack.human_in_the_loop.dataclasses import (
-    ToolExecutionDecision,
 )
 from hayhooks import BasePipelineWrapper, async_streaming_generator, log
 from hayhooks.server.pipelines.sse import SSEStream
